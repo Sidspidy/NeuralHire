@@ -1,0 +1,36 @@
+### Global Variables
+@baseUrl = http://localhost:3000
+
+### 1. API Gateway Health Check
+GET {{baseUrl}}/health
+Content-Type: application/json
+
+### 2. Register New User (Candidate)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+    "email": "test.user@example.com",
+    "password": "Password123!",
+    "role": "CANDIDATE"
+}
+
+### 3. Login User
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+    "email": "test.user@example.com",
+    "password": "Password123!"
+}
+
+### 4. Refresh Token
+@refreshToken = {{login.response.body.refreshToken}}
+
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+    "refreshToken": "{{refreshToken}}"
+}

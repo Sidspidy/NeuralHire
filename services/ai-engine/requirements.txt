@@ -1,0 +1,10 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.20
+openai==1.57.2
+numpy==2.2.1
+scikit-learn==1.6.1
+pypdf==5.1.0
+python-dotenv==1.0.1
+asyncio==3.4.3
+

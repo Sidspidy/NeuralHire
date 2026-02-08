@@ -1,0 +1,14 @@
+# Root .gitignore
+.env
+.env.production
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

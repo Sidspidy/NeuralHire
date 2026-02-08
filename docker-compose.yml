@@ -1,0 +1,179 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: talentos-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: sqldb
+      POSTGRES_DB: talentos
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - talentos-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: talentos-redis
+    command: redis-server --requirepass password --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - talentos-network
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: talentos-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - AUTH_SERVICE_URL=http://auth-service:4000
+      - AI_SERVICE_URL=http://ai-engine:8001
+      - PAYMENT_SERVICE_URL=http://payment-service:8002
+      - REDIS_URL=redis://:password@redis:6379
+      - JWT_SECRET=talentos_AuthService@2026
+      - HIRING_SERVICE_URL=http://hiring-service:3002
+      - CANDIDATE_SERVICE_URL=http://hiring-service:3002
+      - CORS_ORIGIN=http://localhost:5173
+    depends_on:
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+      ai-engine:
+        condition: service_started
+      payment-service:
+        condition: service_started
+    networks:
+      - talentos-network
+
+  auth-service:
+    build: ./services/auth-service
+    container_name: talentos-auth
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:sqldb@postgres:5432/talentos?schema=public
+      - REDIS_URL=redis://:password@redis:6379
+      - JWT_SECRET=talentos_AuthService@2026
+      - JWT_ACCESS_EXPIRY=15m
+      - JWT_REFRESH_EXPIRY=7d
+      - CORS_ORIGIN=http://localhost:5173
+      - LOG_LEVEL=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - talentos-network
+
+  ai-engine:
+    build: ./services/ai-engine
+    container_name: talentos-ai
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - HOST=0.0.0.0
+      - REDIS_URL=redis://:password@redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - QUEUE_CONCURRENCY=5
+      - QUEUE_MAX_RETRIES=3
+      - MAX_FILE_SIZE_MB=5
+      - LOG_LEVEL=info
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - talentos-network
+
+  payment-service:
+    build: ./services/payment-service
+    container_name: talentos-payment
+    ports:
+      - "8002:8002"
+    environment:
+      - PORT=8002
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:sqldb@postgres:5432/talentos?schema=payment
+      - REDIS_URL=redis://:password@redis:6379
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-test_key}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-test_secret}
+      - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET:-test_webhook}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-sk_test_key}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-whsec_test}
+      - IDEMPOTENCY_TTL=86400
+      - LOG_LEVEL=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - talentos-network
+
+  mongo:
+    image: mongo:latest
+    container_name: talentos-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - talentos-network
+
+  hiring-service:
+    build: ./services/hiring-service
+    container_name: talentos-hiring
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://admin:password@mongo:27017/hiring-service?authSource=admin
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=password
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - DEFAULT_VOICE_ID=${DEFAULT_VOICE_ID}
+      - JWT_SECRET=talentos_AuthService@2026
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - talentos-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  mongo_data:
+    driver: local
+
+networks:
+  talentos-network:
+    driver: bridge
