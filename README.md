@@ -49,20 +49,6 @@ For development or debugging:
 
 NeuralHire follows a **microservices architecture** with clear ownership per service.
 
-```mermaid
-graph TD
-    Client[Frontend (React)] --> Gateway[API Gateway (Express)]
-
-    Gateway --> AuthService[Auth Service (NestJS)]
-    Gateway --> HiringService[Hiring Service (NestJS)]
-    Gateway --> AIEngine[AI Engine (FastAPI)]
-    Gateway --> PaymentService[Payment Service (NestJS)]
-
-    AuthService --> AuthDB[(PostgreSQL)]
-    HiringService --> HiringDB[(MongoDB)]
-    PaymentService --> PaymentDB[(PostgreSQL)]
-```
-
 ### Tech Stack
 
 * **Frontend:** React (Vite), Tailwind CSS
